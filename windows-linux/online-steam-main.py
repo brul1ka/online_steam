@@ -1,6 +1,7 @@
 from textual.app import App
 from textual.widgets import Static, Input, ListView, ListItem, Label, Button
 from textual.containers import Container
+from textual.events import Click, MouseScrollUp, MouseScrollDown
 from textual import on
 import requests
 import asyncio
@@ -8,8 +9,9 @@ import asyncio
 
 class OnlineSteam(App):
 
-    current_page = 0
-    page_size = 10
+    current_page = 0  # current page number for pagination
+    page_size = 10    # how many games to show per page
+    favorites = []    # list to store favorite games
 
     CSS = """
         #game_input {
@@ -78,12 +80,14 @@ class OnlineSteam(App):
     """
 
     def find_appid(self, apps, name):
+        # search for appid by game name in the apps list
         for app in apps:
             if app['name'].lower() == name.lower():
                 return app['appid']
         return None
 
     def get_games_list(self):
+        # fetch list of all steam apps from official API
         app_list_url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
         app_list_response = requests.get(app_list_url)
         apps_data = app_list_response.json()
@@ -91,6 +95,7 @@ class OnlineSteam(App):
         return apps
 
     def show_page(self):
+        # show current page of filtered apps in the listview
         next_page_btn = self.query_one('#next_page_btn')
         prvs_page_btn = self.query_one('#prvs_page_btn')
         next_page_btn.disabled = False
@@ -109,6 +114,7 @@ class OnlineSteam(App):
             prvs_page_btn.disabled = False
 
     def compose(self):
+        # define UI layout and components
         yield Input(placeholder='Enter a game name...', id='game_input')
         yield Static("", id='loading')
         with Container(id="lists_and_output"):
@@ -129,6 +135,7 @@ class OnlineSteam(App):
                 yield favorites_widget
 
     async def on_mount(self):
+        # runs once app is ready, loads all games from API in background thread
         loading_widget = self.query_one("#loading", Static)
         loading_widget.update("Loading list of games...")
         self.apps = await asyncio.to_thread(self.get_games_list)
@@ -137,6 +144,7 @@ class OnlineSteam(App):
 
     @on(Input.Submitted)
     async def on_game_input_submitted(self, event: Input.Submitted):
+        # triggered when user submits a game name in input
         output = self.query_one("#output", Static)
         user_game = event.value
         appid = self.find_appid(self.apps, user_game)
@@ -157,6 +165,7 @@ class OnlineSteam(App):
 
     @on(Input.Changed)
     async def filter(self, event: Input.Changed):
+        # triggered when user types in input, filters games list if 3+ chars typed
         query = event.value
         if len(query) >= 3:
             self.current_page = 0
@@ -169,6 +178,7 @@ class OnlineSteam(App):
 
     @on(ListView.Selected)
     async def on_filtered_game_selected(self, event: ListView.Selected):
+        # triggered when user selects game from filtered list
         if event.list_view.id != 'assumed_game_list':
             return
 
@@ -182,6 +192,7 @@ class OnlineSteam(App):
 
     @on(Button.Pressed)
     async def on_page_button_pressed(self, event: Button.Pressed):
+        # handle next/previous page button clicks
         if event.button.id == 'next_page_btn':
             max_page = len(self.filtered_apps) // self.page_size
             if self.current_page < max_page:
@@ -192,6 +203,20 @@ class OnlineSteam(App):
                 self.current_page -= 1
                 self.show_page()
 
+    @on(MouseScrollDown)
+    async def on_scroll_down(self, event: MouseScrollDown):
+        # scroll mouse wheel down -> next page
+        max_page = len(self.filtered_apps) // self.page_size
+        if self.current_page < max_page:
+            self.current_page += 1
+            self.show_page()
+
+    @on(MouseScrollUp)
+    async def on_scroll_up(self, event: MouseScrollUp):
+        # scroll mouse wheel up -> previous page
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.show_page()
 
 if __name__ == '__main__':
     OnlineSteam().run()
