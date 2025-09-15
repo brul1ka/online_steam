@@ -44,20 +44,15 @@ class OnlineSteam(App):
             height: 14;
         }
 
-        #pagination_buttons {
+        #left_buttons {
             layout: horizontal;
             margin-top: 1;
             width: 100%;
             height: 3;
         }
-
-        #prvs_page_btn {
-            width: 1fr;
-            margin-right: 1;
-        }
-
-        #next_page_btn {
-            width: 1fr;
+        
+        #add_to_fav_btn {
+            margin-left: 1;
         }
 
         #right_panel {
@@ -123,9 +118,10 @@ class OnlineSteam(App):
                 filter_list_widget.border_title = 'Assumed'
                 filter_list_widget.border_subtitle = 'min. 3 symbols'
                 yield filter_list_widget
-                with Container(id="pagination_buttons"):
+                with Container(id="left_buttons"):
                     yield Button('Previous page', id='prvs_page_btn', disabled=True)
                     yield Button('Next page', id='next_page_btn', disabled=True)
+                    yield Button('Add to favorite', id='add_to_fav_btn', disabled=False)
             with Container(id="right_panel"):
                 output_static_widget = Static('', id='output')
                 output_static_widget.border_title = 'Output'
@@ -141,6 +137,8 @@ class OnlineSteam(App):
         self.apps = await asyncio.to_thread(self.get_games_list)
         loading_widget.update(f"Loaded {len(self.apps)} games (and not) successfully.")
         self.filtered_games_list = self.query_one('#assumed_game_list')
+        self.favorites = []
+        self.favorites_widget = self.query_one('#favorites', Static)
 
     @on(Input.Submitted)
     async def on_game_input_submitted(self, event: Input.Submitted):
@@ -206,10 +204,13 @@ class OnlineSteam(App):
     @on(MouseScrollDown)
     async def on_scroll_down(self, event: MouseScrollDown):
         # scroll mouse wheel down -> next page
-        max_page = len(self.filtered_apps) // self.page_size
-        if self.current_page < max_page:
-            self.current_page += 1
-            self.show_page()
+        try:
+            max_page = len(self.filtered_apps) // self.page_size
+            if self.current_page < max_page:
+                self.current_page += 1
+                self.show_page()
+        except AttributeError:
+            pass
 
     @on(MouseScrollUp)
     async def on_scroll_up(self, event: MouseScrollUp):
@@ -217,6 +218,8 @@ class OnlineSteam(App):
         if self.current_page > 0:
             self.current_page -= 1
             self.show_page()
+
+
 
 if __name__ == '__main__':
     OnlineSteam().run()
