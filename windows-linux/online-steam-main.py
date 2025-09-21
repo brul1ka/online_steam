@@ -5,6 +5,7 @@ from textual.events import MouseScrollUp, MouseScrollDown
 from textual import on
 import requests
 import time
+import os
 
 
 class OnlineSteam(App):
@@ -163,14 +164,22 @@ class OnlineSteam(App):
                 favorites_file.write(str(favorite))
                 favorites_file.write('\n')
 
+    def create_file_if_not_exists(self, filename):
+        if not os.path.exists(filename):
+            with open(filename, "w") as f:
+                pass
+            return []
+
+    def read_favorites_from_file(self):
+        self.create_file_if_not_exists('favorites.txt')
+        with open("favorites.txt", "r") as favorites_file:
+            return favorites_file.read().splitlines()
+
     def write_debug(self, record):
+        self.create_file_if_not_exists('debug.txt')
         with open('debug.txt', 'a') as debug_file:
             debug_file.write(record)
             debug_file.write('\n')
-
-    def read_favorites_from_file(self):
-        with open('favorites.txt', 'r') as favorites_file:
-            return favorites_file.read().splitlines()
 
     def render_page(self):
         # show current page of filtered apps in the listview
