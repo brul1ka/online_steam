@@ -154,7 +154,7 @@ class OnlineSteam(App):
     def show_selected_game_players(self, event: ListView.Selected):
         selected_item = event.item
         selected_label = selected_item.query_one(Label)
-        selected_game_name = selected_label.renderable
+        selected_game_name = selected_label.content
         self.last_selected_name = selected_game_name
         self.get_and_display_player_count(selected_game_name)
 
@@ -260,7 +260,7 @@ class OnlineSteam(App):
 
         # handle add to favorite button clicks
         elif event.button.id == 'add_to_fav_btn':
-            existing_games = [item.query_one(Label).renderable for item in self.favorites_list_view.children]
+            existing_games = [item.query_one(Label).content for item in self.favorites_list_view.children]
             add_to_fav_btn = self.query_one('#add_to_fav_btn')
             if self.last_selected_name in existing_games:
                 original_label = add_to_fav_btn.label
