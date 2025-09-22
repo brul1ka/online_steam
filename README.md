@@ -42,10 +42,10 @@ This tool is useful for checking if a game is active before launching or buying 
 
 ## Roadmap
 
-- Add fuzzy search
+- ~~Add fuzzy search~~
 - Improve error handling
 - In search only games and DLCs
-- Add favorites
+- ~~Add favorites~~
 - Consider bringing back Android version later (unlikely)
 
 ---
