@@ -1,10 +1,9 @@
 from textual.app import App
 from textual.widgets import Static, Input, ListView, ListItem, Label, Button
 from textual.containers import Container
-from textual.events import MouseScrollUp, MouseScrollDown
 from textual import on
+from asyncio import sleep
 import requests
-import time
 import os
 
 
@@ -12,61 +11,77 @@ class OnlineSteam(App):
     page_index = 0  # current page number for pagination
     page_size = 10  # how many games to show per page
     last_selected_name = None
-    last_selected_appid = None
+    str_last_selected_appid = None
 
     CSS = """
         #game_input {
             border: wide round #983bbb;
             background: black;
         }
-
+        
         #loading {
             dock: bottom;
             align: center bottom;
             padding: 1;
             color: yellow;
         }
-
+        
         #lists_and_output {
             layout: horizontal;
-            height: 20;
+            height: 100%;
             margin: 1;
         }
-
+        
         #left_panel {
             layout: vertical;
             width: 50;
             margin-right: 1;
         }
-
+        
+        #page_buttons {
+            layout: horizontal;
+            width: 100%;
+            height: 3;
+            margin-bottom: 1;
+        }
+        
+        #page_buttons Button:last-child {
+            margin-left: 1;
+        }
+        
         #assumed_game_list {
             border: round #b55dd6;
             padding: 1;
             height: 14;
         }
-
-        #left_buttons {
+        
+        #fav_buttons {
             layout: horizontal;
-            margin-top: 1;
             width: 100%;
             height: 3;
+            margin-top: 1;
         }
-
-        #add_to_fav_btn {
-            margin-left: 1;
+        
+        #fav_buttons Button {
+            width: 1fr;
+            margin-right: 1;
         }
-
+        
+        #fav_buttons Button:last-child {
+            margin-right: 0;
+        }
+        
         #right_panel {
             layout: vertical;
             width: 1fr;
         }
-
+        
         #output {
             border: round #9902d1;
             padding: 1;
             height: 7;
         }
-
+        
         #favorites {
             border: round #55aaff;
             padding: 1;
@@ -81,14 +96,16 @@ class OnlineSteam(App):
         yield Static("", id='loading')
         with Container(id="lists_and_output"):
             with Container(id="left_panel"):
+                with Container(id="page_buttons"):
+                    yield Button('Previous page', id='prev_page_btn', disabled=True)
+                    yield Button('Next page', id='next_page_btn', disabled=True)
                 assumed_list = ListView(id='assumed_game_list')
                 assumed_list.border_title = 'Assumed'
                 assumed_list.border_subtitle = 'min. 3 symbols'
                 yield assumed_list
-                with Container(id="left_buttons"):
-                    yield Button('Previous page', id='prev_page_btn', disabled=True)
-                    yield Button('Next page', id='next_page_btn', disabled=True)
+                with Container(id="fav_buttons"):
                     yield Button('Add to favorite', id='add_to_fav_btn', disabled=True)
+                    yield Button('Delete from favorite', id='del_from_fav_btn', disabled=True, variant="error")
             with Container(id="right_panel"):
                 output_label = Static('', id='output')
                 output_label.border_title = 'Output'
@@ -109,6 +126,7 @@ class OnlineSteam(App):
 
     def update_favorites_list(self):
         self.favorites_list_view = self.query_one('#favorites', ListView)
+        self.favorites_list_view.clear()
         favorite_game_ids = self.read_favorites_from_file()
         for game_id in favorite_game_ids:
             game_name = self.get_name_by_appid(self.app_list, game_id)
@@ -148,6 +166,7 @@ class OnlineSteam(App):
 
     def get_and_display_player_count(self, selected_game):
         selected_appid = self.get_appid_by_name(self.app_list, selected_game)
+        self.str_last_selected_appid = str(selected_appid)
         player_count = self.get_player_count(selected_appid)
         self.display_player_count(selected_game, player_count)
 
@@ -175,12 +194,6 @@ class OnlineSteam(App):
         with open("favorites.txt", "r") as favorites_file:
             return favorites_file.read().splitlines()
 
-    def write_debug(self, record):
-        self.create_file_if_not_exists('debug.txt')
-        with open('debug.txt', 'a') as debug_file:
-            debug_file.write(record)
-            debug_file.write('\n')
-
     def render_page(self):
         # show current page of filtered apps in the listview
         next_button = self.query_one('#next_page_btn')
@@ -199,6 +212,12 @@ class OnlineSteam(App):
             next_button.disabled = True
         if self.page_index >= 1:
             prev_button.disabled = False
+
+    def write_debug(self, record):
+        self.create_file_if_not_exists('debug.txt')
+        with open('debug.txt', 'a') as debug_file:
+            debug_file.write(record)
+            debug_file.write('\n')
 
     @on(Input.Submitted)
     def handle_game_input_submitted(self, event: Input.Submitted):
@@ -236,6 +255,8 @@ class OnlineSteam(App):
         # ability to add a game to favorites/activation of the add to favorites button
         add_to_fav_btn = self.query_one('#add_to_fav_btn')
         add_to_fav_btn.disabled = False
+        del_from_fav_btn = self.query_one('#del_from_fav_btn')
+        del_from_fav_btn.disabled = True
 
     @on(ListView.Selected)
     def handle_favorite_selected(self, event: ListView.Selected):
@@ -244,9 +265,13 @@ class OnlineSteam(App):
             return
 
         self.show_selected_game_players(event)
+        add_to_fav_btn = self.query_one('#add_to_fav_btn')
+        add_to_fav_btn.disabled = True
+        del_from_fav_btn = self.query_one('#del_from_fav_btn')
+        del_from_fav_btn.disabled = False
 
     @on(Button.Pressed)
-    def handle_button_pressed(self, event: Button.Pressed):
+    async def handle_button_pressed(self, event: Button.Pressed):
         # handle next/previous page button clicks
         if event.button.id == 'next_page_btn':
             max_page = len(self.filtered_app_list) // self.page_size
@@ -265,7 +290,7 @@ class OnlineSteam(App):
             if self.last_selected_name in existing_games:
                 original_label = add_to_fav_btn.label
                 add_to_fav_btn.label = "Already added!"
-                time.sleep(1)
+                await sleep(1)
                 add_to_fav_btn.label = original_label
             else:
                 last_selected_name_id = self.get_appid_by_name(self.app_list, self.last_selected_name)
@@ -274,23 +299,14 @@ class OnlineSteam(App):
                 self.write_favorites_to_file(favorite_games_ids)
                 self.favorites_list_view.append(ListItem(Label(self.last_selected_name)))
 
-    @on(MouseScrollDown)
-    def handle_scroll_down(self, event: MouseScrollDown):
-        # scroll mouse wheel down -> next page
-        try:
-            max_page = len(self.filtered_app_list) // self.page_size
-            if self.page_index < max_page:
-                self.page_index += 1
-                self.render_page()
-        except AttributeError:
-            pass
+        elif event.button.id == 'del_from_fav_btn':
+            del_from_fav_btn = self.query_one('#del_from_fav_btn')
+            favorite_games_ids = self.read_favorites_from_file()
+            if self.str_last_selected_appid in favorite_games_ids:
+                favorite_games_ids.remove(self.str_last_selected_appid)
+                self.write_favorites_to_file(favorite_games_ids)
 
-    @on(MouseScrollUp)
-    def handle_scroll_up(self, event: MouseScrollUp):
-        # scroll mouse wheel up -> previous page
-        if self.page_index > 0:
-            self.page_index -= 1
-            self.render_page()
+            self.update_favorites_list()
 
 
 if __name__ == '__main__':
