@@ -194,6 +194,22 @@ class OnlineSteam(App):
         with open("favorites.txt", "r") as favorites_file:
             return favorites_file.read().splitlines()
 
+    def filter_apps(self, query):
+        result = []
+        query_words = query.lower().split()
+        words_amount = len(query_words)
+
+        for app in self.app_list:
+            counter = 0
+            app_name = app['name'].lower()
+            for word in query_words:
+                if word in app_name:
+                    counter += 1
+
+            if counter == words_amount:
+                result.append(app)
+        return result
+
     def render_page(self):
         # show current page of filtered apps in the listview
         next_button = self.query_one('#next_page_btn')
@@ -238,7 +254,7 @@ class OnlineSteam(App):
         query = event.value
         if len(query) >= 3:
             self.page_index = 0
-            self.filtered_app_list = [app for app in self.app_list if query.lower() in app['name'].lower()]
+            self.filtered_app_list = self.filter_apps(query)
             self.render_page()
         else:
             button = self.query_one('#next_page_btn')
@@ -300,7 +316,6 @@ class OnlineSteam(App):
                 self.favorites_list_view.append(ListItem(Label(self.last_selected_name)))
 
         elif event.button.id == 'del_from_fav_btn':
-            del_from_fav_btn = self.query_one('#del_from_fav_btn')
             favorite_games_ids = self.read_favorites_from_file()
             if self.str_last_selected_appid in favorite_games_ids:
                 favorite_games_ids.remove(self.str_last_selected_appid)
