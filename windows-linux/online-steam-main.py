@@ -148,10 +148,17 @@ class OnlineSteam(App):
 
     def get_app_list(self):
         # fetch list of all steam apps from official API
-        app_list_url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
-        app_list_response = requests.get(app_list_url)
-        apps_data = app_list_response.json()
-        return apps_data['applist']['apps']
+        try:
+            app_list_url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
+
+            app_list_response = requests.get(app_list_url, timeout=5)
+            if app_list_response.status_code != 200:
+                return []
+            apps_data = app_list_response.json()
+            return apps_data['applist']['apps']
+        except Exception as e:
+            loading_label = self.query_one("#loading", Static)
+            loading_label.update(f"ERROR getting app list: {e}")
 
     def get_player_count(self, appid):
         url = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid}"
