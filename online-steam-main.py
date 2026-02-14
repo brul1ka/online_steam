@@ -164,8 +164,7 @@ class OnlineSteam(App):
             apps_data = app_list_response.json()
             return apps_data["applist"]["apps"]
         except Exception as e:
-            loading_label = self.query_one("#loading", Static)
-            loading_label.update(f"ERROR getting app list: {e}")
+            return []
 
     def get_player_count(self, appid):
         url = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid}"

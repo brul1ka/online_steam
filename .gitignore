@@ -2,6 +2,5 @@ run-online-steam-windows-FOR-ME.bat
 favorites.txt
 debug.txt
 
-.venv-linux
-.venv-win
+.venv
 .idea
